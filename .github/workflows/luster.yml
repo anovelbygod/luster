@@ -1,0 +1,29 @@
+name: Luster — PM Role Digest
+
+on:
+  schedule:
+    - cron: '0 7 */2 * *'  # Every 2 days at 7am UTC
+  workflow_dispatch:        # Allows manual trigger from GitHub
+
+jobs:
+  run-luster:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Run Luster
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          PERSONAL_EMAIL: ${{ secrets.PERSONAL_EMAIL }}
+          PERSONAL_EMAIL_PASSWORD: ${{ secrets.PERSONAL_EMAIL_PASSWORD }}
+        run: python3 search.py
