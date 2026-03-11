@@ -1,3 +1,6 @@
 .env
 __pycache__/
 *.pyc
+seen_jobs.json
+seen_jobs_efe.json
+seen_jobs_ore.json

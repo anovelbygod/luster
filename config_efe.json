@@ -1,0 +1,19 @@
+{
+    "name": "Efe",
+    "seen_file": "seen_jobs_efe.json",
+    "score_threshold_apply": 70,
+    "score_threshold_review": 55,
+    "sender_email_env": "PERSONAL_EMAIL",
+    "sender_password_env": "PERSONAL_EMAIL_PASSWORD",
+    "recipient_email_env": "PERSONAL_EMAIL",
+    "email_header_label": "Vancouver PM Search",
+    "email_role_label": "PM roles",
+    "searches": [
+      ["Senior Product Manager", "Vancouver Canada"],
+      ["Product Manager", "Remote Canada"],
+      ["Senior Product Manager fintech", "Canada"],
+      ["Product Manager payments", "Canada"],
+      ["Senior Product Manager", "Remote Canada"],
+      ["Lead Product Manager", "Canada"]
+    ]
+  }

@@ -2,15 +2,37 @@ import requests
 import os
 import json
 import smtplib
+import argparse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import date
 from dotenv import load_dotenv
 from score import score_job
+from score_ore import score_job_ore
 
 load_dotenv()
 
-SEEN_FILE = "seen_jobs.json"
+# ── Args ──────────────────────────────────────────────────────────
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", required=True, help="Path to config JSON file")
+args = parser.parse_args()
+
+with open(args.config, "r") as f:
+    config = json.load(f)
+
+SEEN_FILE = config["seen_file"]
+APPLY_THRESHOLD = config["score_threshold_apply"]
+REVIEW_THRESHOLD = config["score_threshold_review"]
+SENDER_EMAIL = os.getenv(config["sender_email_env"])
+SENDER_PASSWORD = os.getenv(config["sender_password_env"])
+RECIPIENT_EMAIL = os.getenv(config["recipient_email_env"])
+HEADER_LABEL = config["email_header_label"]
+ROLE_LABEL = config["email_role_label"]
+SEARCHES = config["searches"]
+USER_NAME = config["name"]
+
+# Pick scoring function
+score_fn = score_job_ore if USER_NAME == "Ore" else score_job
 
 # ── Seen jobs tracker ─────────────────────────────────────────────
 def load_seen():
@@ -42,22 +64,20 @@ def fetch_jobs(query, location):
 
 # ── Email ─────────────────────────────────────────────────────────
 def send_email(subject, html_content):
-    sender = os.getenv("PERSONAL_EMAIL")
-    password = os.getenv("PERSONAL_EMAIL_PASSWORD")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = sender
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = RECIPIENT_EMAIL
     msg.attach(MIMEText(html_content, "html"))
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(sender, password)
-        server.sendmail(sender, sender, msg.as_string())
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, RECIPIENT_EMAIL, msg.as_string())
 
 # ── Card builder ──────────────────────────────────────────────────
 def score_label(score):
-    if score >= 70:
+    if score >= APPLY_THRESHOLD:
         return ("APPLY", "#0F4C2A", "#D1FAE5", "▲")
-    elif score >= 55:
+    elif score >= REVIEW_THRESHOLD:
         return ("REVIEW", "#78350F", "#FEF3C7", "◆")
     else:
         return ("SKIP", "#7F1D1D", "#FEE2E2", "▼")
@@ -76,10 +96,12 @@ def build_job_card(job):
     )
     return f"""
     <div style="border:1px solid #E2E8F0;border-radius:8px;margin-bottom:12px;overflow:hidden;">
-      <div style="background:{bg_color};padding:8px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E2E8F0;">
-        <span style="font-size:9px;font-weight:800;color:{text_color};letter-spacing:2.5px;text-transform:uppercase;">{symbol} {label}</span>
-        <span style="font-size:20px;font-weight:800;color:{text_color};font-family:Georgia,serif;letter-spacing:-0.5px;margin-left:auto;">{job['score']}<span style="font-size:10px;font-weight:500;opacity:0.6;">/100</span></span>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:{bg_color};border-bottom:1px solid #E2E8F0;">
+        <tr>
+          <td style="padding:8px 18px;font-size:9px;font-weight:800;color:{text_color};letter-spacing:2.5px;text-transform:uppercase;">{symbol} {label}</td>
+          <td align="right" style="padding:8px 18px;font-size:18px;font-weight:800;color:{text_color};font-family:Georgia,serif;">{job['score']}/100</td>
+        </tr>
+      </table>
       <div style="background:#FFFFFF;padding:16px 18px;">
         <div style="font-size:14px;font-weight:700;color:#0F172A;line-height:1.3;margin-bottom:4px;">
           {job['title']}{remote_pill}
@@ -101,22 +123,13 @@ def build_job_card(job):
     """
 
 # ── Fetch and score ───────────────────────────────────────────────
-searches = [
-    ("Senior Product Manager", "Vancouver Canada"),
-    ("Product Manager", "Remote Canada"),
-    ("Senior Product Manager fintech", "Canada"),
-    ("Product Manager payments", "Canada"),
-    ("Senior Product Manager", "Remote Canada"),
-    ("Lead Product Manager", "Canada"),
-]
-
 seen_ids = load_seen()
 all_jobs = []
 
-for query, location in searches:
+for query, location in SEARCHES:
     jobs = fetch_jobs(query, location)
     for job in jobs:
-        result = score_job(job)
+        result = score_fn(job)
         if result["rejected"]:
             continue
         job_id = f"{result['title']}|{result['company']}"
@@ -133,25 +146,23 @@ for job in all_jobs:
         this_run_seen.add(key)
         unique_jobs.append(job)
 
-# Sort by score descending
 unique_jobs.sort(key=lambda x: x["score"], reverse=True)
 
-# Save all new job IDs to seen file
 for job in unique_jobs:
     seen_ids.add(f"{job['title']}|{job['company']}")
 save_seen(seen_ids)
 
 # ── Stats ─────────────────────────────────────────────────────────
 total = len(unique_jobs)
-apply_count = sum(1 for j in unique_jobs if j["score"] >= 70)
-review_count = sum(1 for j in unique_jobs if 55 <= j["score"] < 70)
+apply_count = sum(1 for j in unique_jobs if j["score"] >= APPLY_THRESHOLD)
+review_count = sum(1 for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD)
 
 # ── Subject line ──────────────────────────────────────────────────
 new_count = apply_count + review_count
 if new_count > 0:
-    subject = f"🎯 {new_count} new PM role{'s' if new_count != 1 else ''} worth your time — {date.today().strftime('%b %d, %Y')}"
+    subject = f"🎯 {new_count} new {ROLE_LABEL} worth your time — {date.today().strftime('%b %d, %Y')}"
 else:
-    subject = f"📭 No new PM roles today — {date.today().strftime('%b %d, %Y')}"
+    subject = f"📭 No new {ROLE_LABEL} today — {date.today().strftime('%b %d, %Y')}"
 
 # ── Build email ───────────────────────────────────────────────────
 html_email = f"""
@@ -165,48 +176,48 @@ html_email = f"""
   <!-- Header -->
   <div style="background:#0A1A0E;padding:36px 36px 28px;border-radius:12px 12px 0 0;">
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:#4A7C59;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;">
-      The Aventurine Tech Hub &nbsp;·&nbsp; {date.today().strftime("%b %d, %Y")}
+      {HEADER_LABEL} &nbsp;·&nbsp; {date.today().strftime("%b %d, %Y")}
     </div>
-    <div style="font-size:11px;font-weight:800;color:#6BAF80;letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;margin-bottom:6px;">Luster</div>
     <div style="font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.8px;line-height:1.1;margin-bottom:20px;">
-      Job Availability<br/>
+      Role Intelligence<br/>
       <span style="color:#6BAF80;">Briefing</span>
     </div>
-    <div style="display:flex;gap:0;border:1px solid #1E3A24;border-radius:6px;overflow:hidden;">
-      <div style="flex:1;padding:12px 16px;border-right:1px solid #1E3A24;">
-        <div style="font-size:22px;font-weight:800;color:#FFFFFF;">{total}</div>
-        <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">New Roles</div>
-      </div>
-      <div style="flex:1;padding:12px 16px;border-right:1px solid #1E3A24;">
-        <div style="font-size:22px;font-weight:800;color:#6BAF80;">{apply_count}</div>
-        <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Apply Now</div>
-      </div>
-      <div style="flex:1;padding:12px 16px;">
-        <div style="font-size:22px;font-weight:800;color:#C9A84C;">{review_count}</div>
-        <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Worth Review</div>
-      </div>
-    </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #1E3A24;border-radius:6px;overflow:hidden;">
+      <tr>
+        <td width="33%" style="padding:12px 16px;border-right:1px solid #1E3A24;">
+          <div style="font-size:22px;font-weight:800;color:#FFFFFF;">{total}</div>
+          <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">New Roles</div>
+        </td>
+        <td width="33%" style="padding:12px 16px;border-right:1px solid #1E3A24;">
+          <div style="font-size:22px;font-weight:800;color:#6BAF80;">{apply_count}</div>
+          <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Apply Now</div>
+        </td>
+        <td width="33%" style="padding:12px 16px;">
+          <div style="font-size:22px;font-weight:800;color:#C9A84C;">{review_count}</div>
+          <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Worth Review</div>
+        </td>
+      </tr>
+    </table>
   </div>
 
   <!-- Body -->
   <div style="background:#F8FAF8;padding:24px 28px;border-left:1px solid #DDE8DD;border-right:1px solid #DDE8DD;">
 
     {'<div style="font-family:DM Mono,monospace;font-size:9px;color:#0F4C2A;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #D1FAE5;">▲ Apply Now</div>' if apply_count > 0 else ''}
-    {"".join([build_job_card(j) for j in unique_jobs if j["score"] >= 70])}
+    {"".join([build_job_card(j) for j in unique_jobs if j["score"] >= APPLY_THRESHOLD])}
 
     {'<div style="font-family:DM Mono,monospace;font-size:9px;color:#78350F;letter-spacing:2px;text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid #FEF3C7;">◆ Worth Reviewing</div>' if review_count > 0 else ''}
-    {"".join([build_job_card(j) for j in unique_jobs if 55 <= j["score"] < 70])}
-
-    {'<div style="font-family:DM Mono,monospace;font-size:9px;color:#94A3B8;letter-spacing:2px;text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid #E2E8F0;">▼ Skipped This Round</div>' if any(j["score"] < 55 for j in unique_jobs) else ''}
-    {"".join([build_job_card(j) for j in unique_jobs if j["score"] < 55])}
+    {"".join([build_job_card(j) for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD])}
 
   </div>
 
   <!-- Footer -->
-  <div style="background:#0A1A0E;padding:16px 36px;border-radius:0 0 12px 12px;display:flex;justify-content:space-between;align-items:center;">
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#2D5A3D;">Luster · The Aventurine Tech Hub</div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#2D5A3D;">{date.today()}</div>
-  </div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0A1A0E;border-radius:0 0 12px 12px;">
+    <tr>
+      <td style="padding:16px 36px;font-family:'DM Mono',monospace;font-size:10px;color:#2D5A3D;">Luster · The Aventurine Tech Hub</td>
+      <td align="right" style="padding:16px 36px;font-family:'DM Mono',monospace;font-size:10px;color:#2D5A3D;">{date.today()}</td>
+    </tr>
+  </table>
 
 </div>
 </body>
@@ -214,7 +225,7 @@ html_email = f"""
 """
 
 if total == 0:
-    print("✓ No new roles found. Skipping email.")
+    print(f"✓ No new {ROLE_LABEL} found for {USER_NAME}. Skipping email.")
 else:
     send_email(subject, html_email)
-    print(f"✓ Digest sent — {total} new roles · {apply_count} apply · {review_count} review")
+    print(f"✓ Digest sent to {USER_NAME} — {total} new roles · {apply_count} apply · {review_count} review")

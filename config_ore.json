@@ -1,0 +1,19 @@
+{
+    "name": "Ore",
+    "seen_file": "seen_jobs_ore.json",
+    "score_threshold_apply": 65,
+    "score_threshold_review": 55,
+    "sender_email_env": "WIFE_EMAIL",
+    "sender_password_env": "WIFE_EMAIL_PASSWORD",
+    "recipient_email_env": "WIFE_EMAIL",
+    "email_header_label": "Vancouver Job Search",
+    "email_role_label": "roles",
+    "searches": [
+      ["Customer Success Manager", "Remote Canada"],
+      ["Account Manager", "Vancouver Canada"],
+      ["CSM SaaS", "Remote Canada"],
+      ["Digital Marketing Coordinator", "Vancouver Canada"],
+      ["Client Success Manager", "Remote Canada"],
+      ["Account Manager hybrid", "Metro Vancouver"]
+    ]
+  }
