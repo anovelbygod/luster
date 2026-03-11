@@ -2,8 +2,9 @@ name: Luster Job Digest
 
 on:
   schedule:
-    - cron: '0 7 */2 * *'   # Every 2 days at 7am UTC
-  workflow_dispatch:          # Manual trigger
+    - cron: '0 7 */2 * *'   # Ore — every 2 days at 7am UTC
+    - cron: '0 7 * * 1'     # Efe — every Monday at 7am UTC
+  workflow_dispatch:          # Manual trigger for both
 
 jobs:
   digest-efe:
