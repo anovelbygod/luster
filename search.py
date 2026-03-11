@@ -73,19 +73,94 @@ def send_email(subject, html_content):
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.sendmail(SENDER_EMAIL, RECIPIENT_EMAIL, msg.as_string())
 
-# ── Card builder ──────────────────────────────────────────────────
-def score_label(score):
-    if score >= APPLY_THRESHOLD:
-        return ("APPLY", "#0F4C2A", "#D1FAE5", "▲")
-    elif score >= REVIEW_THRESHOLD:
-        return ("REVIEW", "#78350F", "#FEF3C7", "◆")
+# ── Theme config ──────────────────────────────────────────────────
+def get_theme(user_name):
+    if user_name == "Ore":
+        return {
+            "header_bg": "#3D1A24",
+            "header_border": "#6B2A38",
+            "eyebrow_color": "#C9707A",
+            "title_color": "#F5E6E8",
+            "title_accent": "#E8A0A8",
+            "stat_border": "rgba(201,112,122,0.2)",
+            "stat_num_1": "#FFFFFF",
+            "stat_num_2": "#E8A0A8",
+            "stat_num_3": "#C9A84C",
+            "stat_label": "#C9707A",
+            "body_bg": "#FFF0F3",
+            "body_border": "#F5D0D8",
+            "section_apply_color": "#8B3A44",
+            "section_apply_border": "#F5C0C8",
+            "section_review_color": "#78350F",
+            "section_review_border": "#FEF3C7",
+            "card_apply_bg": "#FCE8EC",
+            "card_apply_text": "#8B3A44",
+            "card_review_bg": "#FEF3C7",
+            "card_review_text": "#78350F",
+            "card_skip_bg": "#FEE2E2",
+            "card_skip_text": "#7F1D1D",
+            "card_body_bg": "#FFFFFF",
+            "card_title_color": "#2A0A10",
+            "card_meta_color": "#8B3A44",
+            "card_reason_color": "#64748B",
+            "card_border": "#F0D0D8",
+            "btn_bg": "#3D1A24",
+            "btn_color": "#FFFFFF",
+            "footer_bg": "#3D1A24",
+            "footer_color": "#9B5A64",
+            "font_url": "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,700;1,700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap",
+            "title_font": "'Playfair Display', Georgia, serif",
+        }
     else:
-        return ("SKIP", "#7F1D1D", "#FEE2E2", "▼")
+        return {
+            "header_bg": "#0A1A0E",
+            "header_border": "#1E3A24",
+            "eyebrow_color": "#4A7C59",
+            "title_color": "#FFFFFF",
+            "title_accent": "#6BAF80",
+            "stat_border": "#1E3A24",
+            "stat_num_1": "#FFFFFF",
+            "stat_num_2": "#6BAF80",
+            "stat_num_3": "#C9A84C",
+            "stat_label": "#4A7C59",
+            "body_bg": "#F8FAF8",
+            "body_border": "#DDE8DD",
+            "section_apply_color": "#0F4C2A",
+            "section_apply_border": "#D1FAE5",
+            "section_review_color": "#78350F",
+            "section_review_border": "#FEF3C7",
+            "card_apply_bg": "#D1FAE5",
+            "card_apply_text": "#0F4C2A",
+            "card_review_bg": "#FEF3C7",
+            "card_review_text": "#78350F",
+            "card_skip_bg": "#FEE2E2",
+            "card_skip_text": "#7F1D1D",
+            "card_body_bg": "#FFFFFF",
+            "card_title_color": "#0F172A",
+            "card_meta_color": "#475569",
+            "card_reason_color": "#64748B",
+            "card_border": "#E2E8F0",
+            "btn_bg": "#0F172A",
+            "btn_color": "#FFFFFF",
+            "footer_bg": "#0A1A0E",
+            "footer_color": "#2D5A3D",
+            "font_url": "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap",
+            "title_font": "'Plus Jakarta Sans', Arial, sans-serif",
+        }
 
-def build_job_card(job):
-    label, text_color, bg_color, symbol = score_label(job["score"])
+# ── Card builder ──────────────────────────────────────────────────
+def score_label(score, theme):
+    if score >= APPLY_THRESHOLD:
+        return ("APPLY", theme["card_apply_text"], theme["card_apply_bg"], "▲")
+    elif score >= REVIEW_THRESHOLD:
+        return ("REVIEW", theme["card_review_text"], theme["card_review_bg"], "◆")
+    else:
+        return ("SKIP", theme["card_skip_text"], theme["card_skip_bg"], "▼")
+
+def build_job_card(job, theme):
+    label, text_color, bg_color, symbol = score_label(job["score"], theme)
     reasons_html = "".join([
-        f'<div style="font-size:11px;color:#64748B;padding:1px 0;letter-spacing:0.2px;">{r}</div>'
+        f'<div style="font-size:11px;color:{theme["card_reason_color"]};padding:1px 0;letter-spacing:0.2px;">{r}</div>'
         for r in job["reasons"]
     ])
     remote_pill = (
@@ -95,25 +170,25 @@ def build_job_card(job):
         if job["remote"] else ""
     )
     return f"""
-    <div style="border:1px solid #E2E8F0;border-radius:8px;margin-bottom:12px;overflow:hidden;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:{bg_color};border-bottom:1px solid #E2E8F0;">
+    <div style="border:1px solid {theme['card_border']};border-radius:8px;margin-bottom:12px;overflow:hidden;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:{bg_color};border-bottom:1px solid {theme['card_border']};">
         <tr>
           <td style="padding:8px 18px;font-size:9px;font-weight:800;color:{text_color};letter-spacing:2.5px;text-transform:uppercase;">{symbol} {label}</td>
           <td align="right" style="padding:8px 18px;font-size:18px;font-weight:800;color:{text_color};font-family:Georgia,serif;">{job['score']}/100</td>
         </tr>
       </table>
-      <div style="background:#FFFFFF;padding:16px 18px;">
-        <div style="font-size:14px;font-weight:700;color:#0F172A;line-height:1.3;margin-bottom:4px;">
+      <div style="background:{theme['card_body_bg']};padding:16px 18px;">
+        <div style="font-size:14px;font-weight:700;color:{theme['card_title_color']};line-height:1.3;margin-bottom:4px;">
           {job['title']}{remote_pill}
         </div>
-        <div style="font-size:12px;color:#475569;margin-bottom:12px;letter-spacing:0.2px;">
+        <div style="font-size:12px;color:{theme['card_meta_color']};margin-bottom:12px;letter-spacing:0.2px;">
           {job['company']} &nbsp;·&nbsp; {job['location']}
         </div>
-        <div style="border-left:2px solid #E2E8F0;padding-left:12px;margin-bottom:14px;">
+        <div style="border-left:2px solid {theme['card_border']};padding-left:12px;margin-bottom:14px;">
           {reasons_html}
         </div>
         <a href="{job['apply_link']}"
-           style="display:inline-block;background:#0F172A;color:#FFFFFF;
+           style="display:inline-block;background:{theme['btn_bg']};color:{theme['btn_color']};
                   font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
                   padding:8px 18px;border-radius:4px;text-decoration:none;">
           View Role →
@@ -158,64 +233,75 @@ apply_count = sum(1 for j in unique_jobs if j["score"] >= APPLY_THRESHOLD)
 review_count = sum(1 for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD)
 
 # ── Subject line ──────────────────────────────────────────────────
+theme = get_theme(USER_NAME)
 new_count = apply_count + review_count
-if new_count > 0:
-    subject = f"🎯 {new_count} new {ROLE_LABEL} worth your time — {date.today().strftime('%b %d, %Y')}"
+
+if USER_NAME == "Ore":
+    if new_count > 0:
+        subject = f"Hey Pookie 💌 — {new_count} new role{'s' if new_count != 1 else ''} worth your time"
+    else:
+        subject = f"Hey Pookie 💌 — No new roles today, but I'm still looking"
 else:
-    subject = f"📭 No new {ROLE_LABEL} today — {date.today().strftime('%b %d, %Y')}"
+    if new_count > 0:
+        subject = f"🎯 {new_count} new {ROLE_LABEL} worth your time — {date.today().strftime('%b %d, %Y')}"
+    else:
+        subject = f"📭 No new {ROLE_LABEL} today — {date.today().strftime('%b %d, %Y')}"
 
 # ── Build email ───────────────────────────────────────────────────
+greeting_line = f"Hey Pookie 💌 &nbsp;·&nbsp; {date.today().strftime('%b %d, %Y')}" if USER_NAME == "Ore" else f"{HEADER_LABEL} &nbsp;·&nbsp; {date.today().strftime('%b %d, %Y')}"
+footer_tag = "Luster · made with love 💌" if USER_NAME == "Ore" else "Luster · The Aventurine Tech Hub"
+
 html_email = f"""
 <html>
 <head>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="{theme['font_url']}" rel="stylesheet"/>
 </head>
 <body style="margin:0;padding:0;background:#F1F5F1;font-family:'Plus Jakarta Sans',Arial,sans-serif;">
 <div style="max-width:600px;margin:32px auto;">
 
   <!-- Header -->
-  <div style="background:#0A1A0E;padding:36px 36px 28px;border-radius:12px 12px 0 0;">
-    <div style="font-family:'DM Mono',monospace;font-size:9px;color:#4A7C59;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;">
-      {HEADER_LABEL} &nbsp;·&nbsp; {date.today().strftime("%b %d, %Y")}
+  <div style="background:{theme['header_bg']};padding:36px 36px 28px;border-radius:12px 12px 0 0;">
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:{theme['eyebrow_color']};letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;">
+      {greeting_line}
     </div>
-    <div style="font-size:28px;font-weight:800;color:#FFFFFF;letter-spacing:-0.8px;line-height:1.1;margin-bottom:20px;">
-      Role Intelligence<br/>
-      <span style="color:#6BAF80;">Briefing</span>
+    <div style="font-size:28px;font-weight:800;color:{theme['title_color']};font-family:{theme['title_font']};letter-spacing:-0.8px;line-height:1.1;margin-bottom:20px;">
+      Career Intelligence<br/>
+      <span style="color:{theme['title_accent']};font-style:italic;">Briefing</span>
     </div>
-    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #1E3A24;border-radius:6px;overflow:hidden;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {theme['stat_border']};border-radius:6px;overflow:hidden;">
       <tr>
-        <td width="33%" style="padding:12px 16px;border-right:1px solid #1E3A24;">
-          <div style="font-size:22px;font-weight:800;color:#FFFFFF;">{total}</div>
-          <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">New Roles</div>
+        <td width="33%" style="padding:12px 16px;border-right:1px solid {theme['stat_border']};">
+          <div style="font-size:22px;font-weight:800;color:{theme['stat_num_1']};">{total}</div>
+          <div style="font-size:9px;color:{theme['stat_label']};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">New Roles</div>
         </td>
-        <td width="33%" style="padding:12px 16px;border-right:1px solid #1E3A24;">
-          <div style="font-size:22px;font-weight:800;color:#6BAF80;">{apply_count}</div>
-          <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Apply Now</div>
+        <td width="33%" style="padding:12px 16px;border-right:1px solid {theme['stat_border']};">
+          <div style="font-size:22px;font-weight:800;color:{theme['stat_num_2']};">{apply_count}</div>
+          <div style="font-size:9px;color:{theme['stat_label']};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Apply Now</div>
         </td>
         <td width="33%" style="padding:12px 16px;">
-          <div style="font-size:22px;font-weight:800;color:#C9A84C;">{review_count}</div>
-          <div style="font-size:9px;color:#4A7C59;letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Worth Review</div>
+          <div style="font-size:22px;font-weight:800;color:{theme['stat_num_3']};">{review_count}</div>
+          <div style="font-size:9px;color:{theme['stat_label']};letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;">Worth Review</div>
         </td>
       </tr>
     </table>
   </div>
 
   <!-- Body -->
-  <div style="background:#F8FAF8;padding:24px 28px;border-left:1px solid #DDE8DD;border-right:1px solid #DDE8DD;">
+  <div style="background:{theme['body_bg']};padding:24px 28px;border-left:1px solid {theme['body_border']};border-right:1px solid {theme['body_border']};">
 
-    {'<div style="font-family:DM Mono,monospace;font-size:9px;color:#0F4C2A;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #D1FAE5;">▲ Apply Now</div>' if apply_count > 0 else ''}
-    {"".join([build_job_card(j) for j in unique_jobs if j["score"] >= APPLY_THRESHOLD])}
+    {'<div style="font-family:DM Mono,monospace;font-size:9px;color:' + theme["section_apply_color"] + ';letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid ' + theme["section_apply_border"] + ';">▲ Apply Now</div>' if apply_count > 0 else ''}
+    {"".join([build_job_card(j, theme) for j in unique_jobs if j["score"] >= APPLY_THRESHOLD])}
 
-    {'<div style="font-family:DM Mono,monospace;font-size:9px;color:#78350F;letter-spacing:2px;text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid #FEF3C7;">◆ Worth Reviewing</div>' if review_count > 0 else ''}
-    {"".join([build_job_card(j) for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD])}
+    {'<div style="font-family:DM Mono,monospace;font-size:9px;color:' + theme["section_review_color"] + ';letter-spacing:2px;text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid ' + theme["section_review_border"] + ';">◆ Worth Reviewing</div>' if review_count > 0 else ''}
+    {"".join([build_job_card(j, theme) for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD])}
 
   </div>
 
   <!-- Footer -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0A1A0E;border-radius:0 0 12px 12px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:{theme['footer_bg']};border-radius:0 0 12px 12px;">
     <tr>
-      <td style="padding:16px 36px;font-family:'DM Mono',monospace;font-size:10px;color:#2D5A3D;">Luster · The Aventurine Tech Hub</td>
-      <td align="right" style="padding:16px 36px;font-family:'DM Mono',monospace;font-size:10px;color:#2D5A3D;">{date.today()}</td>
+      <td style="padding:16px 36px;font-family:'DM Mono',monospace;font-size:10px;color:{theme['footer_color']};">{footer_tag}</td>
+      <td align="right" style="padding:16px 36px;font-family:'DM Mono',monospace;font-size:10px;color:{theme['footer_color']};">{date.today()}</td>
     </tr>
   </table>
 

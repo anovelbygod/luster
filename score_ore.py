@@ -16,28 +16,37 @@ def score_job_ore(job):
     reject = False
     reject_reason = ""
 
+    # Seniority hard rejects
+    senior_reject_patterns = [
+        "senior customer success", "senior account manager", "senior client success",
+        "senior client relationship", "lead customer success", "lead account manager",
+        "principal customer success", "principal account manager",
+        "director of", "director,", "vp ", "vice president",
+        "head of customer", "head of account", "head of sales",
+        "manager, customer success", "manager of customer success",
+        "customer success manager, team", "team lead"
+    ]
+    if any(w in title for w in senior_reject_patterns):
+        reject = True
+        reject_reason = "❌ Senior/Lead/Director title — above target seniority"
+
     hard_reject_titles = [
         "data analyst", "business analyst", "data scientist",
         "field sales", "territory sales", "outside sales",
-        "director", "vice president", "vp ", "head of sales",
         "software engineer", "developer", "graphic designer",
         "financial analyst", "financial modell"
     ]
     if any(w in title for w in hard_reject_titles):
         reject = True
-        reject_reason = "❌ Title auto-reject"
+        reject_reason = "❌ Title auto-reject — wrong role type"
 
     if "agency experience required" in description and "not required" not in description:
         reject = True
         reject_reason = "❌ Agency experience required"
 
-    if "6+ years" in description or "six years" in description:
+    if "5+ years" in description or "5 years" in description or "6+ years" in description or "six years" in description:
         reject = True
-        reject_reason = "❌ 6+ years required"
-
-    if "commission only" in description or "base salary" not in description and "ote" not in description and min_salary and min_salary < 40000:
-        reject = True
-        reject_reason = "❌ Commission-only or below minimum comp"
+        reject_reason = "❌ 5+ years required — above experience range"
 
     if "must be located in" in description and "canada" not in description:
         reject = True
@@ -63,19 +72,28 @@ def score_job_ore(job):
 
     # ── 1. Experience Match (25%) ─────────────────────────────────
     exp_score = 0
-    if any(w in title for w in ["customer success manager", "account manager", "client success",
-                                  "client relationship", "partner manager"]):
-        if "2" in description or "3" in description or "4" in description:
-            exp_score = 10
-            reasons.append("✅ CSM/AM title, 2–4 yr range")
-        else:
-            exp_score = 7
-            reasons.append("✅ CSM/AM title")
-    elif any(w in title for w in ["marketing coordinator", "marketing specialist",
-                                   "digital marketing", "performance marketing"]):
-        exp_score = 7
+    if any(w in title for w in [
+        "customer success manager", "account manager", "client success",
+        "client relationship", "partner manager",
+        "associate customer success", "associate account",
+        "junior account", "junior customer success",
+        "account management", "client manager",
+        "relationship manager", "success manager",
+        "client relations", "customer relations"
+    ]):
+        exp_score = 10
+        reasons.append("✅ CSM/AM title — strong match")
+    elif any(w in title for w in [
+        "marketing coordinator", "marketing specialist",
+        "digital marketing", "performance marketing",
+        "marketing associate"
+    ]):
+        exp_score = 8
         reasons.append("✅ Digital marketing title — certs bridge gap")
-    elif any(w in title for w in ["inside sales", "business development", "account executive"]):
+    elif any(w in title for w in [
+        "inside sales", "business development representative",
+        "account executive"
+    ]):
         exp_score = 5
         reasons.append("⚠️ Sales-adjacent — verify account ownership component")
     else:
@@ -84,43 +102,60 @@ def score_job_ore(job):
     score += exp_score * 0.25
 
     # ── 2. Responsibilities Alignment (20%) ───────────────────────
-    resp_score = 0
-    renewal_keywords = ["renewal", "upsell", "expansion", "retention", "business review",
-                         "account health", "qbr", "churn", "onboarding", "adoption"]
-    marketing_keywords = ["meta ads", "google ads", "seo", "sem", "social media",
-                           "campaign", "performance marketing", "influencer", "semrush", "meltwater"]
-    renewal_hits = sum(1 for w in renewal_keywords if w in description)
-    marketing_hits = sum(1 for w in marketing_keywords if w in description)
+    client_facing_keywords = [
+        "client calls", "client meetings", "client relationships", "client communication",
+        "customer calls", "customer meetings", "customer relationships",
+        "relationship building", "point of contact", "day-to-day contact",
+        "stakeholder communication", "client engagement", "customer engagement"
+    ]
+    account_ownership_keywords = [
+        "portfolio of accounts", "book of business", "account portfolio",
+        "manage accounts", "own accounts", "responsible for accounts",
+        "onboarding", "account health", "customer onboarding",
+        "account management", "client management"
+    ]
 
-    if renewal_hits >= 3:
+    client_hits = sum(1 for w in client_facing_keywords if w in description)
+    ownership_hits = sum(1 for w in account_ownership_keywords if w in description)
+
+    if client_hits >= 1 and ownership_hits >= 1:
         resp_score = 10
-        reasons.append("✅ Strong renewal/upsell/retention focus")
-    elif renewal_hits >= 1:
+        reasons.append("✅ Client-facing + account ownership — strong match")
+    elif client_hits >= 2 or ownership_hits >= 2:
         resp_score = 7
-        reasons.append("⚠️ Some renewal/retention signals")
-    elif marketing_hits >= 2:
-        resp_score = 7
-        reasons.append("✅ Digital marketing responsibilities match")
-    elif marketing_hits >= 1:
-        resp_score = 4
-        reasons.append("⚠️ Light marketing signals")
+        reasons.append("⚠️ Good responsibilities signals — verify scope")
+    elif client_hits >= 1 or ownership_hits >= 1:
+        resp_score = 5
+        reasons.append("⚠️ Some responsibilities signals — review carefully")
     else:
-        resp_score = 2
-        reasons.append("❌ No renewal, retention, or marketing signals")
+        marketing_keywords = ["meta ads", "google ads", "seo", "sem", "social media",
+                               "campaign", "performance marketing", "semrush", "meltwater"]
+        marketing_hits = sum(1 for w in marketing_keywords if w in description)
+        if marketing_hits >= 2:
+            resp_score = 7
+            reasons.append("✅ Digital marketing responsibilities match")
+        elif marketing_hits >= 1:
+            resp_score = 4
+            reasons.append("⚠️ Light marketing signals — verify scope")
+        else:
+            resp_score = 2
+            reasons.append("❌ No clear client-facing or account ownership signals")
     score += resp_score * 0.20
 
-    # ── 3. Industry Fit (15%) ─────────────────────────────────────
+    # ── 3. Industry Fit (20%) ─────────────────────────────────────
     tier1_keywords = ["saas", "digital marketing", "hr tech", "e-commerce", "ecommerce",
                        "hospitality tech", "travel tech", "retail media", "performance marketing",
                        "martech", "adtech"]
     tier2_keywords = ["financial services", "fintech", "healthcare tech", "logistics",
                        "supply chain", "professional services", "wellness", "fitness tech"]
-    tier3_keywords = ["manufacturing", "cpg", "fmcg", "gaming", "hardware", "field services"]
+    tier3_keywords = ["manufacturing", "cpg", "fmcg", "gaming", "hardware", "field services",
+                       "dental", "dentistry", "medical device", "pharmaceutical"]
 
     tier1_hits = sum(1 for w in tier1_keywords if w in description)
     tier2_hits = sum(1 for w in tier2_keywords if w in description)
     tier3_hits = sum(1 for w in tier3_keywords if w in description)
 
+    industry_unclear = False
     if tier1_hits >= 1:
         ind_score = 9
         reasons.append("✅ Strong industry fit (SaaS/marketing/HR tech)")
@@ -131,16 +166,20 @@ def score_job_ore(job):
         ind_score = 3
         reasons.append("❌ Weak industry fit")
     else:
-        ind_score = 5
-        reasons.append("⚠️ Industry unclear — verify")
-    score += ind_score * 0.15
+        ind_score = 4
+        industry_unclear = True
+        reasons.append("⚠️ Industry unclear — verify before applying")
+    score += ind_score * 0.20
 
-    # ── 4. Compensation (10%) ─────────────────────────────────────
-    # Convert to CAD rough equivalent (using ~1.36 USD/CAD)
-    is_csm_am = any(w in title for w in ["customer success", "account manager", "client success",
-                                           "client relationship", "partner manager"])
+    # ── 4. Compensation (5%) ──────────────────────────────────────
+    is_csm_am = any(w in title for w in [
+        "customer success", "account manager", "account management",
+        "client success", "client relationship", "client manager",
+        "relationship manager", "success manager", "partner manager"
+    ])
+    salary_unlisted = False
     if min_salary:
-        cad_min = min_salary * 1.36 if min_salary < 50000 else min_salary  # assume CAD if large
+        cad_min = min_salary * 1.36 if min_salary < 50000 else min_salary
         if is_csm_am:
             if cad_min >= 80000:
                 comp_score = 10
@@ -169,9 +208,10 @@ def score_job_ore(job):
                 salary_note = f"❌ Salary: ${min_salary:,} (below minimum)"
     else:
         comp_score = 5
+        salary_unlisted = True
         salary_note = "⚠️ Salary not listed — verify"
     reasons.append(salary_note)
-    score += comp_score * 0.10
+    score += comp_score * 0.05
 
     # ── 5. Location & Work Mode (10%) ─────────────────────────────
     if is_remote:
@@ -189,27 +229,30 @@ def score_job_ore(job):
     score += loc_score * 0.10
 
     # ── 6. Experience Requirements Realism (10%) ──────────────────
-    realism_score = 0
-    if "2 years" in description or "2-4 years" in description or "2+ years" in description:
+    if "1 year" in description or "1+ year" in description or "entry level" in description or "entry-level" in description:
         realism_score = 10
-        reasons.append("✅ 2–4 yr requirement — realistic fit")
-    elif "4 years" in description or "3 years" in description or "3+ years" in description:
-        realism_score = 7
-        reasons.append("⚠️ 3–4 yr requirement — certs help bridge gap")
-    elif "5 years" in description or "5+ years" in description:
-        realism_score = 3
-        reasons.append("❌ 5+ yr requirement — stretch")
+        reasons.append("✅ Entry-level / 1 yr requirement — great fit")
+    elif "2 years" in description or "2+ years" in description or "2-3 years" in description:
+        realism_score = 10
+        reasons.append("✅ 2 yr requirement — strong fit")
+    elif "3 years" in description or "3+ years" in description or "2-4 years" in description:
+        realism_score = 8
+        reasons.append("✅ 3 yr requirement — solid fit")
+    elif "4 years" in description or "4+ years" in description:
+        realism_score = 5
+        reasons.append("⚠️ 4 yr requirement — upper edge of range")
     else:
         realism_score = 6
-        reasons.append("⚠️ Experience requirement unclear")
+        reasons.append("⚠️ Experience requirement unclear — verify")
     score += realism_score * 0.10
 
     # ── 7. Company & Culture Signal (10%) ─────────────────────────
-    culture_score = 0
     positive_signals = ["smb", "mid-market", "relationship", "coaching", "growth",
-                         "people-first", "collaborative", "mentorship", "team culture"]
+                         "people-first", "collaborative", "mentorship", "team culture",
+                         "supportive", "training provided"]
     negative_signals = ["high volume", "cold call", "100 calls", "aggressive",
-                         "churn and burn", "cutthroat", "agency experience required"]
+                         "churn and burn", "cutthroat", "agency experience required",
+                         "quota attainment", "hunter"]
 
     positive_hits = sum(1 for w in positive_signals if w in description)
     negative_hits = sum(1 for w in negative_signals if w in description)
@@ -228,12 +271,18 @@ def score_job_ore(job):
         reasons.append("⚠️ Culture signals neutral/unclear")
     score += culture_score * 0.10
 
+    # ── Double uncertainty penalty ─────────────────────────────────
+    penalty = 0
+    if salary_unlisted and industry_unclear:
+        penalty = 5
+        reasons.append("⚠️ Penalty: salary + industry both unclear")
+
     # ── Bilingual bonus ───────────────────────────────────────────
     if "french" in description or "bilingual" in description:
         bilingual_bonus = 0.3
         reasons.append("🌟 Bilingual English/French valued — bonus applied")
 
-    final_score = round(score * 10 + bilingual_bonus)
+    final_score = max(0, round(score * 10 + bilingual_bonus - penalty))
 
     return {
         "title": job.get("job_title") or "Unknown Title",
