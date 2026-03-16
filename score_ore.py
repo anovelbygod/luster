@@ -143,10 +143,10 @@ def score_job_ore(job):
     score += resp_score * 0.20
 
     # ── 3. Industry Fit (20%) ─────────────────────────────────────
-    tier1_keywords = ["saas", "digital marketing", "hr tech", "e-commerce", "ecommerce",
-                       "hospitality tech", "travel tech", "retail media", "performance marketing",
-                       "martech", "adtech"]
-    tier2_keywords = ["financial services", "fintech", "healthcare tech", "logistics",
+    tier1_keywords = ["saas", "digital marketing", "hr tech", "e-commerce", "ecommerce", "financial services",
+                       "fintech", "hospitality tech", "travel tech", "retail media", "performance marketing",
+                       "bank", "financial institution"]
+    tier2_keywords = [ "healthcare tech", "logistics", "adtech", "martech",
                        "supply chain", "professional services", "wellness", "fitness tech"]
     tier3_keywords = ["manufacturing", "cpg", "fmcg", "gaming", "hardware", "field services",
                        "dental", "dentistry", "medical device", "pharmaceutical"]
