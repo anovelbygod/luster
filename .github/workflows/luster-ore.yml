@@ -1,0 +1,23 @@
+name: Luster — Ore's Digest
+
+on:
+  schedule:
+    - cron: '0 7 */2 * *'  # Every 2 days at 7am UTC
+  workflow_dispatch:         # Manual trigger
+
+jobs:
+  digest-ore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests python-dotenv anthropic
+      - name: Run Ore's digest
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          WIFE_EMAIL: ${{ secrets.WIFE_EMAIL }}
+          WIFE_EMAIL_PASSWORD: ${{ secrets.WIFE_EMAIL_PASSWORD }}
+        run: python search.py --config config_ore.json

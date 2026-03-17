@@ -1,0 +1,23 @@
+name: Luster — Efe's Digest
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'   # Every Monday at 7am UTC
+  workflow_dispatch:        # Manual trigger
+
+jobs:
+  digest-efe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests python-dotenv anthropic
+      - name: Run Efe's digest
+        env:
+          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+          PERSONAL_EMAIL: ${{ secrets.PERSONAL_EMAIL }}
+          PERSONAL_EMAIL_PASSWORD: ${{ secrets.PERSONAL_EMAIL_PASSWORD }}
+        run: python search.py --config config_efe.json
