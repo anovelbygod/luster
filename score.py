@@ -135,19 +135,33 @@ def score_job(job):
     score += comp_score * 0.20
 
     # ── Remote (15%) ──────────────────────────────────────────────
-    if is_remote:
-        remote_score = 10
-        reasons.append("✅ Remote role")
-    elif "vancouver" in location:
-        remote_score = 7
-        reasons.append("⚠️ Vancouver office — verify hybrid days")
-    elif "canada" in location:
-        remote_score = 5
-        reasons.append("⚠️ Canada-based — verify remote policy")
-    else:
-        remote_score = 2
-        reasons.append("❌ Not remote, not Vancouver")
-    score += remote_score * 0.15
+flag_countries = [
+    "south africa", "brazil", "mexico", "argentina",
+    "nigeria", "kenya", "egypt", "ukraine", "poland", "romania",
+    "czech republic", "hungary", "portugal", "spain", "italy"
+]
+us_tagged = "united states" in location or ", us" in location or "usa" in location
+location_flag = any(country in location for country in flag_countries)
+
+if is_remote and not location_flag and not us_tagged:
+    remote_score = 10
+    reasons.append("✅ Remote role")
+elif is_remote and us_tagged:
+    remote_score = 7
+    reasons.append("⚠️ Remote — tagged US, verify open to Canada (work auth)")
+elif is_remote and location_flag:
+    remote_score = 4
+    reasons.append(f"⚠️ Remote — listing tagged '{job.get('job_location')}', verify open to Canada")
+elif "vancouver" in location:
+    remote_score = 7
+    reasons.append("⚠️ Vancouver office — verify hybrid days")
+elif "canada" in location:
+    remote_score = 5
+    reasons.append("⚠️ Canada-based — verify remote policy")
+else:
+    remote_score = 2
+    reasons.append("❌ Not remote, not Vancouver")
+score += remote_score * 0.15
 
     # ── Hard rejects ──────────────────────────────────────────────
     reject = False

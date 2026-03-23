@@ -182,7 +182,7 @@ def build_job_card(job, theme):
           {job['title']}{remote_pill}
         </div>
         <div style="font-size:12px;color:{theme['card_meta_color']};margin-bottom:12px;letter-spacing:0.2px;">
-          {job['company']} &nbsp;·&nbsp; {job['location']}
+          {job['company']} &nbsp;·&nbsp; {"Remote" if job['remote'] else job['location']}
         </div>
         <div style="border-left:2px solid {theme['card_border']};padding-left:12px;margin-bottom:14px;">
           {reasons_html}
