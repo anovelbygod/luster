@@ -16,7 +16,6 @@ def score_job_ore(job):
     reject = False
     reject_reason = ""
 
-    # Seniority hard rejects
     senior_reject_patterns = [
         "senior customer success", "senior account manager", "senior client success",
         "senior client relationship", "lead customer success", "lead account manager",
@@ -146,7 +145,7 @@ def score_job_ore(job):
     tier1_keywords = ["saas", "digital marketing", "hr tech", "e-commerce", "ecommerce", "financial services",
                        "fintech", "hospitality tech", "travel tech", "retail media", "performance marketing",
                        "bank", "financial institution"]
-    tier2_keywords = [ "healthcare tech", "logistics", "adtech", "martech",
+    tier2_keywords = ["healthcare tech", "logistics", "adtech", "martech",
                        "supply chain", "professional services", "wellness", "fitness tech"]
     tier3_keywords = ["manufacturing", "cpg", "fmcg", "gaming", "hardware", "field services",
                        "dental", "dentistry", "medical device", "pharmaceutical"]
@@ -213,36 +212,35 @@ def score_job_ore(job):
     reasons.append(salary_note)
     score += comp_score * 0.05
 
-    # ── 5. Location & Work Mode (10%) ─────────────────────────────────
-allowed_locations = ["canada", "united states", "united kingdom", ", us", "usa", ", uk"]
-us_tagged = "united states" in location or ", us" in location or "usa" in location
-canada_tagged = "canada" in location
-uk_tagged = "united kingdom" in location or ", uk" in location
+    # ── 5. Location & Work Mode (10%) ─────────────────────────────
+    allowed_locations = ["canada", "united states", "united kingdom", ", us", "usa", ", uk"]
+    us_tagged = "united states" in location or ", us" in location or "usa" in location
+    canada_tagged = "canada" in location
+    uk_tagged = "united kingdom" in location or ", uk" in location
+    location_in_scope = any(loc in location for loc in allowed_locations)
 
-location_in_scope = any(loc in location for loc in allowed_locations)
-
-if is_remote and canada_tagged:
-    loc_score = 10
-    reasons.append("✅ Remote Canada")
-elif is_remote and us_tagged:
-    loc_score = 10
-    reasons.append("✅ Remote US")
-elif is_remote and uk_tagged:
-    loc_score = 10
-    reasons.append("✅ Remote UK")
-elif is_remote and not location_in_scope:
-    loc_score = 0
-    reasons.append(f"⚠️ Remote — listing tagged '{job.get('job_location')}', outside Canada/US/UK")
-elif "vancouver" in location:
-    loc_score = 7
-    reasons.append("⚠️ Vancouver hybrid — check office days")
-elif canada_tagged:
-    loc_score = 5
-    reasons.append("⚠️ Canada-based — verify remote policy")
-else:
-    loc_score = 0
-    reasons.append("❌ Outside Canada/US/UK")
-score += loc_score * 0.10
+    if is_remote and canada_tagged:
+        loc_score = 10
+        reasons.append("✅ Remote Canada")
+    elif is_remote and us_tagged:
+        loc_score = 10
+        reasons.append("✅ Remote US")
+    elif is_remote and uk_tagged:
+        loc_score = 10
+        reasons.append("✅ Remote UK")
+    elif is_remote and not location_in_scope:
+        loc_score = 0
+        reasons.append(f"⚠️ Remote — listing tagged '{job.get('job_location')}', outside Canada/US/UK")
+    elif "vancouver" in location:
+        loc_score = 7
+        reasons.append("⚠️ Vancouver hybrid — check office days")
+    elif canada_tagged:
+        loc_score = 5
+        reasons.append("⚠️ Canada-based — verify remote policy")
+    else:
+        loc_score = 0
+        reasons.append("❌ Outside Canada/US/UK")
+    score += loc_score * 0.10
 
     # ── 6. Experience Requirements Realism (10%) ──────────────────
     if "1 year" in description or "1+ year" in description or "entry level" in description or "entry-level" in description:
