@@ -93,6 +93,8 @@ def get_theme(user_name):
             "section_apply_border": "#F5C0C8",
             "section_review_color": "#78350F",
             "section_review_border": "#FEF3C7",
+            "section_explore_color": "#4A5568",
+            "section_explore_border": "#E2E8F0",
             "card_apply_bg": "#FCE8EC",
             "card_apply_text": "#8B3A44",
             "card_review_bg": "#FEF3C7",
@@ -129,6 +131,8 @@ def get_theme(user_name):
             "section_apply_border": "#D1FAE5",
             "section_review_color": "#78350F",
             "section_review_border": "#FEF3C7",
+            "section_explore_color": "#4A5568",
+            "section_explore_border": "#E2E8F0",
             "card_apply_bg": "#D1FAE5",
             "card_apply_text": "#0F4C2A",
             "card_review_bg": "#FEF3C7",
@@ -155,7 +159,7 @@ def score_label(score, theme):
     elif score >= REVIEW_THRESHOLD:
         return ("REVIEW", theme["card_review_text"], theme["card_review_bg"], "◆")
     else:
-        return ("SKIP", theme["card_skip_text"], theme["card_skip_bg"], "▼")
+        return ("EXPLORE", theme["card_skip_text"], theme["card_skip_bg"], "◇")
 
 def build_job_card(job, theme):
     label, text_color, bg_color, symbol = score_label(job["score"], theme)
@@ -228,9 +232,10 @@ for job in unique_jobs:
 save_seen(seen_ids)
 
 # ── Stats ─────────────────────────────────────────────────────────
-total = len(unique_jobs)
 apply_count = sum(1 for j in unique_jobs if j["score"] >= APPLY_THRESHOLD)
 review_count = sum(1 for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD)
+explore_count = sum(1 for j in unique_jobs if 0 < j["score"] < REVIEW_THRESHOLD)
+total = len(unique_jobs) if USER_NAME != "Ore" else (apply_count + review_count + explore_count)
 
 # ── Subject line ──────────────────────────────────────────────────
 theme = get_theme(USER_NAME)
@@ -239,6 +244,8 @@ new_count = apply_count + review_count
 if USER_NAME == "Ore":
     if new_count > 0:
         subject = f"Hey Pookie 💌 — {new_count} new role{'s' if new_count != 1 else ''} worth your time"
+    elif explore_count > 0:
+        subject = f"Hey Pookie 💌 — {explore_count} role{'s' if explore_count != 1 else ''} to explore today"
     else:
         subject = f"Hey Pookie 💌 — No new roles today, but I'm still looking"
 else:
@@ -295,6 +302,9 @@ html_email = f"""
     {'<div style="font-family:DM Mono,monospace;font-size:9px;color:' + theme["section_review_color"] + ';letter-spacing:2px;text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid ' + theme["section_review_border"] + ';">◆ Worth Reviewing</div>' if review_count > 0 else ''}
     {"".join([build_job_card(j, theme) for j in unique_jobs if REVIEW_THRESHOLD <= j["score"] < APPLY_THRESHOLD])}
 
+    {'<div style="font-family:DM Mono,monospace;font-size:9px;color:' + theme["section_explore_color"] + ';letter-spacing:2px;text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid ' + theme["section_explore_border"] + ';">◇ Explore</div>' if explore_count > 0 and USER_NAME == "Ore" else ''}
+    {"".join([build_job_card(j, theme) for j in unique_jobs if 0 < j["score"] < REVIEW_THRESHOLD]) if USER_NAME == "Ore" else ''}
+
   </div>
 
   <!-- Footer -->
@@ -314,4 +324,4 @@ if total == 0:
     print(f"✓ No new {ROLE_LABEL} found for {USER_NAME}. Skipping email.")
 else:
     send_email(subject, html_email)
-    print(f"✓ Digest sent to {USER_NAME} — {total} new roles · {apply_count} apply · {review_count} review")
+    print(f"✓ Digest sent to {USER_NAME} — {total} new roles · {apply_count} apply · {review_count} review · {explore_count} explore")
