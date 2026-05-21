@@ -56,7 +56,7 @@ def fetch_jobs(query, location):
         "query": f"{query} in {location}",
         "page": "1",
         "num_pages": "1",
-        "date_posted": "week"
+        "date_posted": "3days"
     }
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
