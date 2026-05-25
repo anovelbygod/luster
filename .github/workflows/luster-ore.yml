@@ -5,6 +5,9 @@ on:
     - cron: '0 7 */2 * *'  # Every 2 days at 7am UTC
   workflow_dispatch:         # Manual trigger
 
+permissions:
+  contents: write
+
 jobs:
   digest-ore:
     runs-on: ubuntu-latest
