@@ -2,8 +2,8 @@ name: Luster — Efe's Digest
 
 on:
   schedule:
-    - cron: '0 7 * * 1,4'   # Every Monday at 7am UTC
-  workflow_dispatch:        # Manual trigger
+    - cron: '0 7 * * 1,4'   # Monday and Thursday at 7am UTC
+  workflow_dispatch:          # Manual trigger
 
 jobs:
   digest-efe:
@@ -21,3 +21,10 @@ jobs:
           PERSONAL_EMAIL: ${{ secrets.PERSONAL_EMAIL }}
           PERSONAL_EMAIL_PASSWORD: ${{ secrets.PERSONAL_EMAIL_PASSWORD }}
         run: python search.py --config config_efe.json
+      - name: Save seen jobs
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add seen_jobs_efe.json
+          git diff --staged --quiet || git commit -m "update seen jobs [skip ci]"
+          git push
