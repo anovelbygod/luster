@@ -1,177 +1,363 @@
-def score_job(job):
+def score_job_ore(job):
     title = (job.get("job_title") or "").lower()
     location = (job.get("job_location") or "").lower()
     description = (job.get("job_description") or "").lower()
-    is_remote = job.get("job_is_remote") or False
-    min_salary = job.get("job_min_salary")
-    max_salary = job.get("job_max_salary")
     apply_link = job.get("job_apply_link") or job.get("job_google_link") or ""
     company = job.get("employer_name") or "Unknown"
 
+    # ── New JSearch enriched fields ───────────────────────────────
+    work_arrangement = (job.get("work_arrangement") or "").lower()
+    seniority_level = (job.get("seniority_level") or "").lower()
+    required_exp_years = job.get("required_experience_years")
+
+    # Fallback to legacy remote flag if work_arrangement not available
+    is_remote_flag = job.get("job_is_remote") or False
+    is_remote = work_arrangement in ["remote", "hybrid"] or is_remote_flag
+
+    min_salary = job.get("job_min_salary")
+    max_salary = job.get("job_max_salary")
+
     score = 0
     reasons = []
-
-    # ── Domain (30%) ──────────────────────────────────────────────
-    fintech_keywords = [
-        "fintech", "payments", "payment rails", "payment processing",
-        "payment platform", "payment gateway", "payment infrastructure",
-        "digital banking", "mobile banking", "neobank", "banking platform",
-        "banking app", "open banking", "embedded finance",
-        "merchant services", "merchant platform", "merchant acquiring",
-        "card issuing", "card payments", "card network",
-        "cross-border payments", "money transfer", "remittance",
-        "financial services", "financial technology", "financial platform",
-        "kyc", "aml", "fraud detection", "transaction monitoring",
-        "settlement", "reconciliation", "disbursement", "payout",
-        "wallet", "digital wallet", "e-wallet",
-        "lending platform", "credit platform", "loan origination",
-        "treasury", "liquidity", "fx", "foreign exchange",
-        "compliance fintech", "regtech", "payment product",
-        "acquiring", "issuing", "payment operations",
-    ]
-
-    b2b_keywords = [
-        "b2b saas", "enterprise saas", "saas platform", "b2b platform",
-        "enterprise platform", "enterprise software", "enterprise product",
-        "api platform", "api product", "developer platform", "developer tools",
-        "developer experience", "platform product", "infrastructure product",
-        "compliance platform", "operations platform", "workflow platform",
-        "b2b software", "business software", "multi-tenant",
-        "self-serve platform", "admin platform", "dashboard product",
-    ]
-
-    consumer_keywords = [
-        "consumer app", "consumer product", "consumer experience",
-        "b2c mobile", "mobile app", "mobile product",
-        "ios", "android", "app store",
-        "subscription product", "subscription growth",
-        "user retention", "user acquisition", "user activation",
-        "consumer fintech", "consumer banking", "personal finance",
-        "growth product", "engagement product",
-    ]
-
-    adjacent_keywords = [
-        "healthtech", "health technology", "digital health",
-        "edtech", "e-learning platform",
-        "e-commerce platform", "marketplace platform",
-        "insurtech", "proptech", "legaltech", "regtech",
-        "logistics platform", "supply chain platform",
-    ]
-
-    fintech_hits = sum(1 for w in fintech_keywords if w in description)
-    b2b_hits = sum(1 for w in b2b_keywords if w in description)
-    consumer_hits = sum(1 for w in consumer_keywords if w in description)
-    adjacent_hits = sum(1 for w in adjacent_keywords if w in description)
-
-    fintech_title_keywords = ["fintech", "payments", "payment", "financial", "finance", "banking", "wallet", "lending", "credit"]
-    b2b_title_keywords = ["platform", "saas", "enterprise", "b2b", "api"]
-    consumer_title_keywords = ["consumer", "mobile", "growth", "app"]
-
-    if any(w in title for w in fintech_title_keywords):
-        fintech_hits += 1
-    if any(w in title for w in b2b_title_keywords):
-        b2b_hits += 1
-    if any(w in title for w in consumer_title_keywords):
-        consumer_hits += 1
-
-    domain_score = 0
-    if fintech_hits >= 2:
-        domain_score = 10
-        reasons.append("✅ FinTech/Payments domain")
-    elif b2b_hits >= 2:
-        domain_score = 9
-        reasons.append("✅ B2B SaaS domain")
-    elif consumer_hits >= 2:
-        domain_score = 8
-        reasons.append("✅ Consumer mobile domain")
-    elif adjacent_hits >= 1:
-        domain_score = 6
-        reasons.append("⚠️ Adjacent domain — verify fit")
-    elif fintech_hits == 1 or b2b_hits == 1 or consumer_hits == 1:
-        domain_score = 5
-        reasons.append("⚠️ Possible domain fit — verify before applying")
-    else:
-        domain_score = 3
-        reasons.append("❌ Weak domain fit")
-    score += domain_score * 0.30
-
-    # ── Role Type (25%) ───────────────────────────────────────────
-    role_score = 0
-    if any(w in title for w in ["senior product manager", "lead product", "principal product",
-                                 "head of product", "group product manager", "director of product"]):
-        role_score = 10
-        reasons.append("✅ Senior/Lead PM title")
-    elif any(w in title for w in ["product manager", "product owner"]):
-        role_score = 8
-        reasons.append("✅ PM title")
-    elif "product" in title:
-        role_score = 5
-        reasons.append("⚠️ Product-adjacent title — verify scope")
-    else:
-        role_score = 2
-        reasons.append("❌ Not a PM role")
-    score += role_score * 0.25
-
-    # ── Compensation (20%) ────────────────────────────────────────
-    if min_salary and min_salary >= 120000:
-        comp_score = 10
-        salary_note = f"✅ Salary: ${min_salary:,}–${max_salary:,}" if max_salary else f"✅ Salary: ${min_salary:,}+"
-    elif min_salary and min_salary >= 100000:
-        comp_score = 8
-        salary_note = f"✅ Salary: ${min_salary:,}–${max_salary:,}" if max_salary else f"✅ Salary: ${min_salary:,}+"
-    elif min_salary and min_salary >= 80000:
-        comp_score = 6
-        salary_note = f"⚠️ Salary: ${min_salary:,} (below target)"
-    elif min_salary:
-        comp_score = 0
-        salary_note = f"❌ Salary: ${min_salary:,} (below minimum)"
-    else:
-        comp_score = 6
-        salary_note = "⚠️ Salary not listed — verify"
-    reasons.append(salary_note)
-    score += comp_score * 0.20
-
-    # ── Remote (15%) ──────────────────────────────────────────────
-    flag_countries = [
-        "south africa", "brazil", "mexico", "argentina",
-        "nigeria", "kenya", "egypt", "ukraine", "poland", "romania",
-        "czech republic", "hungary", "portugal", "spain", "italy"
-    ]
-    us_tagged = "united states" in location or ", us" in location or "usa" in location
-    location_flag = any(country in location for country in flag_countries)
-
-    if is_remote and not location_flag and not us_tagged:
-        remote_score = 10
-        reasons.append("✅ Remote role")
-    elif is_remote and us_tagged:
-        remote_score = 7
-        reasons.append("⚠️ Remote — tagged US, verify open to Canada (work auth)")
-    elif is_remote and location_flag:
-        remote_score = 4
-        reasons.append(f"⚠️ Remote — listing tagged '{job.get('job_location')}', verify open to Canada")
-    elif "vancouver" in location:
-        remote_score = 7
-        reasons.append("⚠️ Vancouver office — verify hybrid days")
-    elif "canada" in location:
-        remote_score = 5
-        reasons.append("⚠️ Canada-based — verify remote policy")
-    else:
-        remote_score = 2
-        reasons.append("❌ Not remote, not Vancouver")
-    score += remote_score * 0.15
+    bilingual_bonus = 0
 
     # ── Hard rejects ──────────────────────────────────────────────
     reject = False
     reject_reason = ""
-    if any(w in title for w in ["data analyst", "business analyst", "operations manager", "marketing manager"]):
+
+    # Use seniority_level field to replace fragile title pattern matching
+    if seniority_level in ["principal", "director", "vp", "executive"]:
         reject = True
-        reject_reason = "❌ Not a PM role"
-    if "4 days" in description and "hybrid" in description:
+        reject_reason = "❌ Above target seniority level"
+
+    # Fallback title-based senior reject if seniority_level not available
+    if not seniority_level:
+        senior_reject_patterns = [
+            "senior customer success", "senior account manager", "senior client success",
+            "senior client relationship", "lead customer success", "lead account manager",
+            "principal customer success", "principal account manager",
+            "director of", "director,", "vp ", "vice president",
+            "head of customer", "head of account", "head of sales",
+            "manager, customer success", "manager of customer success",
+            "customer success manager, team", "team lead"
+        ]
+        if any(w in title for w in senior_reject_patterns):
+            reject = True
+            reject_reason = "❌ Senior/Lead/Director title — above target seniority"
+
+    hard_reject_titles = [
+        "data analyst", "business analyst", "data scientist",
+        "field sales", "territory sales", "outside sales",
+        "software engineer", "developer", "graphic designer",
+        "financial analyst", "financial modell"
+    ]
+    if any(w in title for w in hard_reject_titles):
         reject = True
-        reject_reason = "❌ Office 4 days/week"
-    if "must be located in" in description and "canada" not in description:
+        reject_reason = "❌ Title auto-reject — wrong role type"
+
+    if "agency experience required" in description and "not required" not in description:
         reject = True
-        reject_reason = "❌ Location-locked outside Canada"
+        reject_reason = "❌ Agency experience required"
+
+    # Use required_experience_years field — more reliable than text scraping
+    if required_exp_years is not None and required_exp_years >= 5:
+        reject = True
+        reject_reason = f"❌ {required_exp_years}+ years required — above experience range"
+    elif required_exp_years is None:
+        # Fallback to text scraping only if enriched field not available
+        if any(p in description for p in ["5+ years", "5 years", "6+ years", "six years", "7+ years", "7 years"]):
+            reject = True
+            reject_reason = "❌ 5+ years required — above experience range"
+
+    if "must be located in" in description and "canada" not in description and "united states" not in description:
+        reject = True
+        reject_reason = "❌ Location-locked outside Canada/US"
+
+    if work_arrangement == "onsite" and "vancouver" not in location:
+        reject = True
+        reject_reason = "❌ Onsite role outside Vancouver"
+
+    if "driver's licence required" in description or "driver's license required" in description:
+        reject = True
+        reject_reason = "❌ Field sales — driver's licence required"
+
+    if reject:
+        return {
+            "title": job.get("job_title") or "Unknown Title",
+            "company": company,
+            "location": job.get("job_location") or "Unknown Location",
+            "remote": is_remote,
+            "apply_link": apply_link,
+            "score": 0,
+            "reasons": [reject_reason],
+            "rejected": True,
+            "reject_reason": reject_reason,
+            "description": (job.get("job_description") or "")[:500]
+        }
+
+    # ── 1. Experience Match (25%) ─────────────────────────────────
+    exp_score = 0
+    if any(w in title for w in [
+        "customer success manager", "account manager", "client success",
+        "client relationship", "partner manager",
+        "associate customer success", "associate account",
+        "junior account", "junior customer success",
+        "account management", "client manager",
+        "relationship manager", "success manager",
+        "client relations", "customer relations"
+    ]):
+        exp_score = 10
+        reasons.append("✅ CSM/AM title — strong match")
+    elif any(w in title for w in [
+        "marketing coordinator", "marketing specialist",
+        "digital marketing", "performance marketing",
+        "marketing associate"
+    ]):
+        exp_score = 8
+        reasons.append("✅ Digital marketing title — certs bridge gap")
+    elif any(w in title for w in [
+        "inside sales", "business development representative",
+        "account executive"
+    ]):
+        exp_score = 5
+        reasons.append("⚠️ Sales-adjacent — verify account ownership component")
+    else:
+        exp_score = 2
+        reasons.append("❌ Weak title match")
+    score += exp_score * 0.25
+
+    # ── 2. Responsibilities Alignment (20%) ───────────────────────
+    client_facing_keywords = [
+        "client calls", "client meetings", "client relationships", "client communication",
+        "customer calls", "customer meetings", "customer relationships",
+        "relationship building", "point of contact", "day-to-day contact",
+        "stakeholder communication", "client engagement", "customer engagement"
+    ]
+    account_ownership_keywords = [
+        "portfolio of accounts", "book of business", "account portfolio",
+        "manage accounts", "own accounts", "responsible for accounts",
+        "onboarding", "account health", "customer onboarding",
+        "account management", "client management"
+    ]
+
+    client_hits = sum(1 for w in client_facing_keywords if w in description)
+    ownership_hits = sum(1 for w in account_ownership_keywords if w in description)
+
+    if client_hits >= 1 and ownership_hits >= 1:
+        resp_score = 10
+        reasons.append("✅ Client-facing + account ownership — strong match")
+    elif client_hits >= 2 or ownership_hits >= 2:
+        resp_score = 7
+        reasons.append("⚠️ Good responsibilities signals — verify scope")
+    elif client_hits >= 1 or ownership_hits >= 1:
+        resp_score = 5
+        reasons.append("⚠️ Some responsibilities signals — review carefully")
+    else:
+        marketing_keywords = ["meta ads", "google ads", "seo", "sem", "social media",
+                               "campaign", "performance marketing", "semrush", "meltwater"]
+        marketing_hits = sum(1 for w in marketing_keywords if w in description)
+        if marketing_hits >= 2:
+            resp_score = 7
+            reasons.append("✅ Digital marketing responsibilities match")
+        elif marketing_hits >= 1:
+            resp_score = 4
+            reasons.append("⚠️ Light marketing signals — verify scope")
+        else:
+            resp_score = 2
+            reasons.append("❌ No clear client-facing or account ownership signals")
+    score += resp_score * 0.20
+
+    # ── 3. Industry Fit (20%) ─────────────────────────────────────
+    tier1_keywords = ["saas", "digital marketing", "hr tech", "e-commerce", "ecommerce",
+                       "financial services", "fintech", "hospitality tech", "travel tech",
+                       "retail media", "performance marketing", "bank", "financial institution"]
+    tier2_keywords = ["healthcare tech", "logistics", "adtech", "martech",
+                       "supply chain", "professional services", "wellness", "fitness tech"]
+    tier3_keywords = ["manufacturing", "cpg", "fmcg", "gaming", "hardware", "field services",
+                       "dental", "dentistry", "medical device", "pharmaceutical"]
+
+    tier1_hits = sum(1 for w in tier1_keywords if w in description)
+    tier2_hits = sum(1 for w in tier2_keywords if w in description)
+    tier3_hits = sum(1 for w in tier3_keywords if w in description)
+
+    industry_unclear = False
+    if tier1_hits >= 1:
+        ind_score = 9
+        reasons.append("✅ Strong industry fit (SaaS/marketing/HR tech)")
+    elif tier2_hits >= 1:
+        ind_score = 7
+        reasons.append("⚠️ Adjacent industry — acceptable fit")
+    elif tier3_hits >= 1:
+        ind_score = 3
+        reasons.append("❌ Weak industry fit")
+    else:
+        ind_score = 4
+        industry_unclear = True
+        reasons.append("⚠️ Industry unclear — verify before applying")
+    score += ind_score * 0.20
+
+    # ── 4. Compensation (5%) ──────────────────────────────────────
+    is_csm_am = any(w in title for w in [
+        "customer success", "account manager", "account management",
+        "client success", "client relationship", "client manager",
+        "relationship manager", "success manager", "partner manager"
+    ])
+    salary_unlisted = False
+    if min_salary:
+        cad_min = min_salary * 1.36 if min_salary < 50000 else min_salary
+        if is_csm_am:
+            if cad_min >= 80000:
+                comp_score = 10
+                salary_note = f"✅ Salary: ${min_salary:,}+ (strong)"
+            elif cad_min >= 65000:
+                comp_score = 7
+                salary_note = f"✅ Salary: ${min_salary:,}+ (on target)"
+            elif cad_min >= 60000:
+                comp_score = 4
+                salary_note = f"⚠️ Salary: ${min_salary:,} (below target)"
+            else:
+                comp_score = 0
+                salary_note = f"❌ Salary: ${min_salary:,} (below minimum)"
+        else:
+            if cad_min >= 55000:
+                comp_score = 10
+                salary_note = f"✅ Salary: ${min_salary:,}+ (strong for marketing)"
+            elif cad_min >= 45000:
+                comp_score = 7
+                salary_note = f"✅ Salary: ${min_salary:,}+ (on target)"
+            elif cad_min >= 42000:
+                comp_score = 4
+                salary_note = f"⚠️ Salary: ${min_salary:,} (at floor)"
+            else:
+                comp_score = 0
+                salary_note = f"❌ Salary: ${min_salary:,} (below minimum)"
+    else:
+        comp_score = 5
+        salary_unlisted = True
+        salary_note = "⚠️ Salary not listed — verify"
+    reasons.append(salary_note)
+    score += comp_score * 0.05
+
+    # ── 5. Location & Work Mode (10%) ─────────────────────────────
+    canada_tagged = "canada" in location
+    us_tagged = "united states" in location or ", us" in location or "usa" in location
+    allowed_location = canada_tagged or us_tagged
+
+    if work_arrangement == "remote":
+        if canada_tagged:
+            loc_score = 10
+            reasons.append("✅ Remote Canada (confirmed)")
+        elif us_tagged:
+            loc_score = 10
+            reasons.append("✅ Remote US (confirmed)")
+        elif not allowed_location:
+            loc_score = 0
+            reasons.append(f"⚠️ Remote — tagged '{job.get('job_location')}', outside Canada/US")
+        else:
+            loc_score = 8
+            reasons.append("✅ Remote role")
+    elif work_arrangement == "hybrid":
+        if "vancouver" in location:
+            loc_score = 7
+            reasons.append("⚠️ Hybrid Vancouver — check office days")
+        elif canada_tagged:
+            loc_score = 5
+            reasons.append("⚠️ Hybrid Canada — verify office days")
+        else:
+            loc_score = 2
+            reasons.append("⚠️ Hybrid — verify location eligibility")
+    else:
+        # Fallback to legacy logic
+        if is_remote_flag and canada_tagged:
+            loc_score = 10
+            reasons.append("✅ Remote Canada")
+        elif is_remote_flag and us_tagged:
+            loc_score = 10
+            reasons.append("✅ Remote US")
+        elif is_remote_flag and not allowed_location:
+            loc_score = 0
+            reasons.append(f"⚠️ Remote — tagged '{job.get('job_location')}', outside Canada/US")
+        elif "vancouver" in location:
+            loc_score = 7
+            reasons.append("⚠️ Vancouver hybrid — check office days")
+        elif canada_tagged:
+            loc_score = 5
+            reasons.append("⚠️ Canada-based — verify remote policy")
+        else:
+            loc_score = 0
+            reasons.append("❌ Outside Canada/US")
+    score += loc_score * 0.10
+
+    # ── 6. Experience Requirements Realism (10%) ──────────────────
+    if required_exp_years is not None:
+        if required_exp_years <= 2:
+            realism_score = 10
+            reasons.append(f"✅ {required_exp_years} yr requirement — great fit")
+        elif required_exp_years <= 3:
+            realism_score = 10
+            reasons.append(f"✅ {required_exp_years} yr requirement — strong fit")
+        elif required_exp_years <= 4:
+            realism_score = 7
+            reasons.append(f"⚠️ {required_exp_years} yr requirement — upper edge of range")
+        else:
+            realism_score = 3
+            reasons.append(f"⚠️ {required_exp_years} yr requirement — stretch")
+    else:
+        # Fallback text scraping
+        if "1 year" in description or "1+ year" in description or "entry level" in description:
+            realism_score = 10
+            reasons.append("✅ Entry-level / 1 yr requirement — great fit")
+        elif "2 years" in description or "2+ years" in description or "2-3 years" in description:
+            realism_score = 10
+            reasons.append("✅ 2 yr requirement — strong fit")
+        elif "3 years" in description or "3+ years" in description or "2-4 years" in description:
+            realism_score = 8
+            reasons.append("✅ 3 yr requirement — solid fit")
+        elif "4 years" in description or "4+ years" in description:
+            realism_score = 5
+            reasons.append("⚠️ 4 yr requirement — upper edge of range")
+        else:
+            realism_score = 6
+            reasons.append("⚠️ Experience requirement unclear — verify")
+    score += realism_score * 0.10
+
+    # ── 7. Company & Culture Signal (10%) ─────────────────────────
+    positive_signals = ["smb", "mid-market", "relationship", "coaching", "growth",
+                         "people-first", "collaborative", "mentorship", "team culture",
+                         "supportive", "training provided"]
+    negative_signals = ["high volume", "cold call", "100 calls", "aggressive",
+                         "churn and burn", "cutthroat", "agency experience required",
+                         "quota attainment", "hunter"]
+
+    positive_hits = sum(1 for w in positive_signals if w in description)
+    negative_hits = sum(1 for w in negative_signals if w in description)
+
+    if positive_hits >= 2 and negative_hits == 0:
+        culture_score = 10
+        reasons.append("✅ Positive culture signals")
+    elif positive_hits >= 1 and negative_hits == 0:
+        culture_score = 7
+        reasons.append("⚠️ Some positive culture signals")
+    elif negative_hits >= 1:
+        culture_score = 2
+        reasons.append("❌ Negative culture signals detected")
+    else:
+        culture_score = 5
+        reasons.append("⚠️ Culture signals neutral/unclear")
+    score += culture_score * 0.10
+
+    # ── Double uncertainty penalty ─────────────────────────────────
+    penalty = 0
+    if salary_unlisted and industry_unclear:
+        penalty = 5
+        reasons.append("⚠️ Penalty: salary + industry both unclear")
+
+    # ── Bilingual bonus ───────────────────────────────────────────
+    if "french" in description or "bilingual" in description:
+        bilingual_bonus = 0.3
+        reasons.append("🌟 Bilingual English/French valued — bonus applied")
+
+    final_score = max(0, round(score * 10 + bilingual_bonus - penalty))
 
     return {
         "title": job.get("job_title") or "Unknown Title",
@@ -179,9 +365,9 @@ def score_job(job):
         "location": job.get("job_location") or "Unknown Location",
         "remote": is_remote,
         "apply_link": apply_link,
-        "score": round(score * 10),
+        "score": final_score,
         "reasons": reasons,
-        "rejected": reject,
-        "reject_reason": reject_reason,
+        "rejected": False,
+        "reject_reason": "",
         "description": (job.get("job_description") or "")[:500]
     }
