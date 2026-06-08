@@ -1,10 +1,12 @@
 name: Luster — Efe's Digest
 
 on:
-  schedule:
-    - cron: '0 7 * * 1,4'   # Monday and Thursday at 7am UTC
+
   workflow_dispatch:          # Manual trigger
 
+permissions:
+  contents: write
+  
 jobs:
   digest-efe:
     runs-on: ubuntu-latest
